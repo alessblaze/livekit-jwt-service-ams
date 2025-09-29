@@ -764,7 +764,7 @@ func (h *Handler) handle(w http.ResponseWriter, r *http.Request) {
 		debugLog("Creating LiveKit identity: %s", lkIdentity)
 
 		// Check if room exists and handle duplicate sessions for existing meetings
-		listCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		listCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 		existingRoom, err := h.roomClient.ListRooms(listCtx, &livekit.ListRoomsRequest{
 			Names: []string{sfuAccessRequest.Room},
@@ -785,7 +785,7 @@ func (h *Handler) handle(w http.ResponseWriter, r *http.Request) {
 		} else {
 			// Room exists - check for duplicate sessions for all users
 			debugLog("Room %s exists - checking for duplicate sessions", sfuAccessRequest.Room)
-			participantsCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+			participantsCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
 			participants, err := h.roomClient.ListParticipants(participantsCtx, &livekit.ListParticipantsRequest{
 				Room: sfuAccessRequest.Room,
@@ -840,7 +840,7 @@ func (h *Handler) handle(w http.ResponseWriter, r *http.Request) {
 			debugLog("Full access user - attempting room creation for: %s", sfuAccessRequest.Room)
 			creationStart := time.Now().Unix()
 			debugLog("Using existing LiveKit connection to: %s", h.lkUrl)
-			createCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+			createCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
 			room, err := h.roomClient.CreateRoom(
 				createCtx, &livekit.CreateRoomRequest{
@@ -855,7 +855,7 @@ func (h *Handler) handle(w http.ResponseWriter, r *http.Request) {
 				debugLog("Room creation failed, attempting client reconnection: %v", err)
 				// Recreate client and retry once
 				h.roomClient = lksdk.NewRoomServiceClient(h.lkUrl, h.key, h.secret)
-				retryCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+				retryCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 				defer cancel()
 				room, err = h.roomClient.CreateRoom(
 					retryCtx, &livekit.CreateRoomRequest{
@@ -1171,7 +1171,7 @@ func (h *Handler) getUserInfoViaIdentityVerify(token OpenIDTokenType, deviceID s
 	debugLog("Request body: %s", string(reqBody))
 
 	// Create context with deadline aligned to server write timeout (3s)
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	req, err := http.NewRequestWithContext(ctx, "POST", u.String(), bytes.NewBuffer(reqBody))
