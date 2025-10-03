@@ -29,7 +29,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"os"
 	"time"
 
 	"github.com/google/uuid"
@@ -116,7 +115,7 @@ func verifySignature(payload IdentityPayload, signature string, publicKey ed2551
 	}
 
 	// Test mode: simulate tampered signature
-	if os.Getenv("LIVEKIT_TEST_FAKE_V2_SIGNATURE") == "true" {
+	if getEnvBool("LIVEKIT_TEST_FAKE_V2_SIGNATURE") {
 		debugLog("TEST MODE: Simulating tampered signature (LIVEKIT_TEST_FAKE_V2_SIGNATURE=true)")
 		// Corrupt the signature bytes to simulate tampering
 		if len(sigBytes) > 0 {
@@ -136,7 +135,7 @@ func verifyIdentity(serverName string, privateKey ed25519.PrivateKey, synapsePub
 
 func verifyIdentityWithToken(serverName, accessToken string, privateKey ed25519.PrivateKey, synapsePublicKey ed25519.PublicKey) error {
 	// SECURITY FIX: Validate server name to prevent SSRF attacks
-	isPublicFacing := os.Getenv("LIVEKIT_IS_PUBLIC_FACING") == "true"
+	isPublicFacing := getEnvBool("LIVEKIT_IS_PUBLIC_FACING")
 	if err := validateMatrixServerName(serverName, isPublicFacing); err != nil {
 		return fmt.Errorf("invalid server name: %v", err)
 	}

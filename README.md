@@ -101,7 +101,8 @@ sequenceDiagram
     A-->>U: Returns LiveKit JWT
     U->>L: Connects to room using JWT
 ```
-### V2 will be available very soon in AMS fork of Synapse.
+### V2 is Available in AMS fork of Synapse.
+### at 
 ### Currently use V1 as it is what current Synapse offers.
 ### This code is completely rewritten from scratch.
 ### The LiveKit itself is written in golang so we didn't

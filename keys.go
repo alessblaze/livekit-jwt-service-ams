@@ -22,7 +22,6 @@ import (
 	"crypto/ed25519"
 	"encoding/base64"
 	"fmt"
-	"os"
 	"strings"
 )
 
@@ -43,8 +42,8 @@ func loadEd25519Keys() (ed25519.PrivateKey, ed25519.PublicKey, error) {
 	}
 
 	// Private key: 32-byte seed or 64-byte expanded private key.
-	privB64 := os.Getenv("MATRIX_PRIVATE_KEY")
-	if strings.TrimSpace(privB64) == "" {
+	privB64 := getEnv("MATRIX_PRIVATE_KEY")
+	if privB64 == "" {
 		return nil, nil, fmt.Errorf("MATRIX_PRIVATE_KEY not set")
 	}
 	privBytes, err := tryStd(privB64)
@@ -65,8 +64,8 @@ func loadEd25519Keys() (ed25519.PrivateKey, ed25519.PublicKey, error) {
 	}
 
 	// Public key: exactly 32 bytes.
-	pubB64 := os.Getenv("SYNAPSE_PUBLIC_KEY")
-	if strings.TrimSpace(pubB64) == "" {
+	pubB64 := getEnv("SYNAPSE_PUBLIC_KEY")
+	if pubB64 == "" {
 		return nil, nil, fmt.Errorf("SYNAPSE_PUBLIC_KEY not set")
 	}
 	pubBytes, err := tryStd(pubB64)

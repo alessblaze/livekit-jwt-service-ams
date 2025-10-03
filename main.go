@@ -56,7 +56,7 @@ var httpClient *http.Client
 
 func initHTTPClient(skipVerifyTLS bool) {
 	// TODO: Think if the payload does not contain any ocsp information we can query it ourselves
-	requireOCSP := os.Getenv("REQUIRE_OCSP_STAPLE") == "true"
+	requireOCSP := getEnvBool("REQUIRE_OCSP_STAPLE")
 
 	// Always enable connection pooling for Matrix homeserver calls (V1/V2 full access)
 	transport := &http.Transport{
@@ -214,12 +214,12 @@ type SFUResponse struct {
 
 func readKeySecret() (string, string) {
 	// We initialize keys & secrets from environment variables
-	key := os.Getenv("LIVEKIT_KEY")
-	secret := os.Getenv("LIVEKIT_SECRET")
+	key := getEnv("LIVEKIT_KEY")
+	secret := getEnv("LIVEKIT_SECRET")
 	// We initialize potential key & secret path from environment variables
-	keyPath := os.Getenv("LIVEKIT_KEY_FROM_FILE")
-	secretPath := os.Getenv("LIVEKIT_SECRET_FROM_FILE")
-	keySecretPath := os.Getenv("LIVEKIT_KEY_FILE")
+	keyPath := getEnv("LIVEKIT_KEY_FROM_FILE")
+	secretPath := getEnv("LIVEKIT_SECRET_FROM_FILE")
+	keySecretPath := getEnv("LIVEKIT_KEY_FILE")
 
 	// If keySecretPath is set we read the file and split it into two parts
 	// It takes over any other initialization
@@ -307,7 +307,7 @@ func isPrivateAddr(addr netip.Addr) bool {
 
 // validateServerName performs basic SSRF validation for redirect destinations
 func validateServerName(serverName string) error {
-	isPublicFacing := os.Getenv("LIVEKIT_IS_PUBLIC_FACING") == "true"
+	isPublicFacing := getEnvBool("LIVEKIT_IS_PUBLIC_FACING")
 	return validateMatrixServerName(serverName, isPublicFacing)
 }
 
@@ -621,7 +621,7 @@ func (h *Handler) handle(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Validate matrix server name for public-facing deployments (false by default)
-		isPublicFacing := os.Getenv("LIVEKIT_IS_PUBLIC_FACING") == "true"
+		isPublicFacing := getEnvBool("LIVEKIT_IS_PUBLIC_FACING")
 		debugLog("Processing SFU request for room: %s, device: %s", sfuAccessRequest.Room, sfuAccessRequest.DeviceID)
 
 		// Log full payload for device ID analysis
@@ -660,14 +660,14 @@ func (h *Handler) handle(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Check if restricted homeservers are blocked
-		if !isFullAccessUser && os.Getenv("LIVEKIT_BLOCK_RESTRICTED_HOMESERVERS") == "true" {
+		if !isFullAccessUser && getEnvBool("LIVEKIT_BLOCK_RESTRICTED_HOMESERVERS") {
 			debugLog("Restricted homeserver blocked: %s", sfuAccessRequest.OpenIDToken.MatrixServerName)
 			h.writeErrorResponse(w, http.StatusForbidden, "M_FORBIDDEN", "Restricted homeservers are not allowed")
 			return
 		}
 
 		// Check blocked homeservers list (only if allowlist and block-restricted are not active)
-		if len(h.allowedHomeservers) == 0 && os.Getenv("LIVEKIT_BLOCK_RESTRICTED_HOMESERVERS") != "true" {
+		if len(h.allowedHomeservers) == 0 && !getEnvBool("LIVEKIT_BLOCK_RESTRICTED_HOMESERVERS") {
 			if len(h.blockedHomeservers) > 0 && slices.Contains(h.blockedHomeservers, sfuAccessRequest.OpenIDToken.MatrixServerName) {
 				debugLog("Homeserver is blocked: %s", sfuAccessRequest.OpenIDToken.MatrixServerName)
 				h.writeErrorResponse(w, http.StatusForbidden, "M_FORBIDDEN", "Homeserver is blocked")
@@ -676,7 +676,7 @@ func (h *Handler) handle(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Determine verification method based on homeserver type and configuration
-		verificationMethod := os.Getenv("MATRIX_VERIFICATION_METHOD")
+		verificationMethod := getEnv("MATRIX_VERIFICATION_METHOD")
 		var userInfo *UserInfo
 
 		if isFullAccessUser && (verificationMethod == "v1" || verificationMethod == "v2") {
@@ -713,7 +713,7 @@ func (h *Handler) handle(w http.ResponseWriter, r *http.Request) {
 				// V2: Enhanced user identity verification with device validation
 				deviceID := sfuAccessRequest.DeviceID
 				// Debug: Use fake device ID if enabled
-				if os.Getenv("MATRIX_DEBUG_FAKE_DEVICE_ID") == "true" {
+				if getEnvBool("MATRIX_DEBUG_FAKE_DEVICE_ID") {
 					deviceID = "DEBUG_FAKE_DEVICE_" + uuid.New().String()[:8]
 					debugLog("🔧 DEBUG: Using fake device ID: %s (original: %s)", deviceID, sfuAccessRequest.DeviceID)
 				}
@@ -801,8 +801,8 @@ func (h *Handler) handle(w http.ResponseWriter, r *http.Request) {
 				}
 				debugLog("Checking for duplicates against incoming identity: %s (user: %s, device: %s)", lkIdentity, userInfo.Sub, sfuAccessRequest.DeviceID)
 
-				blockSameDevice := os.Getenv("LIVEKIT_BLOCK_SAME_DEVICE_DUPLICATE") == "true"
-				blockSameUserMultiDevice := os.Getenv("LIVEKIT_BLOCK_SAME_USER_MULTIPLE_DEVICES") == "true"
+				blockSameDevice := getEnvBool("LIVEKIT_BLOCK_SAME_DEVICE_DUPLICATE")
+				blockSameUserMultiDevice := getEnvBool("LIVEKIT_BLOCK_SAME_USER_MULTIPLE_DEVICES")
 
 				for _, participant := range participants.Participants {
 					// Extract user ID and device ID from participant identity (format: userID:deviceID)
@@ -901,14 +901,14 @@ func (h *Handler) handle(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-	debugEnabled = os.Getenv("LIVEKIT_DEBUG") == "true"
+	debugEnabled = getEnvBool("LIVEKIT_DEBUG")
 	if debugEnabled {
 		log.SetFlags(log.LstdFlags | log.Lshortfile)
 		log.Printf("Debug logging enabled")
 	}
 
 	// Initialize HTTP client
-	skipVerifyTLS := os.Getenv("LIVEKIT_INSECURE_SKIP_VERIFY_TLS") == "YES_I_KNOW_WHAT_I_AM_DOING"
+	skipVerifyTLS := getEnv("LIVEKIT_INSECURE_SKIP_VERIFY_TLS") == "YES_I_KNOW_WHAT_I_AM_DOING"
 	initHTTPClient(skipVerifyTLS)
 
 	// DEVELOPMENT NOTE: skipVerifyTLS is for development/testing with self-signed certificates only
@@ -922,19 +922,19 @@ func main() {
 	}
 
 	key, secret := readKeySecret()
-	lkUrl := os.Getenv("LIVEKIT_URL")
+	lkUrl := getEnv("LIVEKIT_URL")
 
 	// Check if the key, secret or url are empty.
 	if key == "" || secret == "" || lkUrl == "" {
 		log.Fatal("LIVEKIT_KEY[_FILE], LIVEKIT_SECRET[_FILE] and LIVEKIT_URL environment variables must be set")
 	}
 
-	fullAccessHomeservers := os.Getenv("LIVEKIT_FULL_ACCESS_HOMESERVERS")
+	fullAccessHomeservers := getEnv("LIVEKIT_FULL_ACCESS_HOMESERVERS")
 
 	if len(fullAccessHomeservers) == 0 {
 		// For backward compatibility we also check for LIVEKIT_LOCAL_HOMESERVERS
 		// TODO: Remove this backward compatibility in the near future.
-		localHomeservers := os.Getenv("LIVEKIT_LOCAL_HOMESERVERS")
+		localHomeservers := getEnv("LIVEKIT_LOCAL_HOMESERVERS")
 		if len(localHomeservers) > 0 {
 			log.Printf("!!! LIVEKIT_LOCAL_HOMESERVERS is deprecated, please use LIVEKIT_FULL_ACCESS_HOMESERVERS instead !!!")
 			fullAccessHomeservers = localHomeservers
@@ -946,7 +946,7 @@ func main() {
 		}
 	}
 
-	lkJwtPort := os.Getenv("LIVEKIT_JWT_PORT")
+	lkJwtPort := getEnv("LIVEKIT_JWT_PORT")
 	if lkJwtPort == "" {
 		lkJwtPort = "8080"
 	}
@@ -955,8 +955,8 @@ func main() {
 	log.Printf("LIVEKIT_FULL_ACCESS_HOMESERVERS: %v", fullAccessHomeservers)
 
 	// Validate configuration for conflicting settings
-	allowedHomeservers := os.Getenv("LIVEKIT_ALLOWED_HOMESERVERS")
-	blockRestricted := os.Getenv("LIVEKIT_BLOCK_RESTRICTED_HOMESERVERS") == "true"
+	allowedHomeservers := getEnv("LIVEKIT_ALLOWED_HOMESERVERS")
+	blockRestricted := getEnvBool("LIVEKIT_BLOCK_RESTRICTED_HOMESERVERS")
 	if allowedHomeservers != "" && blockRestricted {
 		// Check if there are homeservers in allowlist that are not in full access list
 		allowedList := strings.Split(allowedHomeservers, ",")
@@ -995,7 +995,7 @@ func main() {
 	// Load Ed25519 keys for Matrix verification (if enhanced verification is enabled)
 	var privateKey ed25519.PrivateKey
 	var synapsePublicKey ed25519.PublicKey
-	verificationMethod := os.Getenv("MATRIX_VERIFICATION_METHOD")
+	verificationMethod := getEnv("MATRIX_VERIFICATION_METHOD")
 	if verificationMethod == "v2" {
 		var err error
 		privateKey, synapsePublicKey, err = loadEd25519Keys()
@@ -1006,9 +1006,9 @@ func main() {
 		log.Printf("Matrix verification method: %s", verificationMethod)
 
 		// Test verification on startup if requested (v2 only - requires keys)
-		if os.Getenv("MATRIX_VERIFICATION_TEST_ON_START") == "true" {
+		if getEnvBool("MATRIX_VERIFICATION_TEST_ON_START") {
 			log.Printf("Testing Matrix verification method %s on startup...", verificationMethod)
-			testServer := os.Getenv("MATRIX_TEST_SERVER")
+			testServer := getEnv("MATRIX_TEST_SERVER")
 			if testServer == "" {
 				// Use first full access homeserver as test server
 				fullAccessList := strings.Split(fullAccessHomeservers, ",")
@@ -1047,7 +1047,7 @@ func main() {
 	}
 
 	// Pre-split and cache blocked homeservers list
-	blockedHomeservers := os.Getenv("LIVEKIT_BLOCKED_HOMESERVERS")
+	blockedHomeservers := getEnv("LIVEKIT_BLOCKED_HOMESERVERS")
 	var blockedList []string
 	if blockedHomeservers != "" {
 		blockedList = strings.Split(blockedHomeservers, ",")

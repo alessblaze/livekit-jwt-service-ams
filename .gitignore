@@ -65,3 +65,6 @@ temp/
 # Build artifacts
 dist/
 build/
+
+# Test directories
+ams-test/
