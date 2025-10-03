@@ -102,7 +102,7 @@ sequenceDiagram
     U->>L: Connects to room using JWT
 ```
 ### V2 is Available in AMS fork of Synapse.
-### at 
+### at https://github.com/alessblaze/synapse
 ### Currently use V1 as it is what current Synapse offers.
 ### This code is completely rewritten from scratch.
 ### The LiveKit itself is written in golang so we didn't
